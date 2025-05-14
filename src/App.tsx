@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Preferences from "./pages/Preferences";
 import Properties from "./pages/Properties";
 import PropertyDetail from "./pages/PropertyDetail";
+import DealFinder from "./pages/DealFinder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/preferences" element={<Preferences />} />
           <Route path="/properties" element={<Properties />} />
           <Route path="/properties/:id" element={<PropertyDetail />} />
+          <Route path="/dealfinder" element={<DealFinder />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
