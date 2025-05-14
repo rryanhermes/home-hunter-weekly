@@ -164,7 +164,7 @@ const DealFinder = () => {
         minimumGrade: minimumGrade,
         locationPreferences: [location],
         propertyTypes: propertyType === "all" ? ["Single Family", "Multi Family", "Condo", "Townhouse"] : [propertyType],
-        priceRange: priceRange,
+        priceRange: [priceRange[0], priceRange[1]] as [number, number], // Fixed: explicitly cast to tuple type
         minBedrooms: minBedrooms,
         minBathrooms: minBathrooms,
       };

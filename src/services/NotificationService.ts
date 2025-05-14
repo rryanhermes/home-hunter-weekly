@@ -14,11 +14,19 @@ export class NotificationService {
     try {
       console.log('Subscribing to alerts:', email, preferences);
       
+      // Ensure priceRange is valid
+      const validPreferences = {
+        ...preferences,
+        priceRange: Array.isArray(preferences.priceRange) && preferences.priceRange.length === 2
+          ? preferences.priceRange as [number, number]
+          : [0, 1000000] as [number, number]
+      };
+      
       // In a real implementation, this would send the data to a backend server
       // For now, we'll store in localStorage
       const subscriptions = JSON.parse(localStorage.getItem('emailSubscriptions') || '{}');
       subscriptions[email] = {
-        preferences,
+        preferences: validPreferences,
         createdAt: new Date().toISOString(),
         active: true
       };
