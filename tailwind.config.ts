@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,15 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				estate: {
+					primary: '#2563eb', // bright blue
+					secondary: '#1e40af', // darker blue
+					accent: '#3b82f6', // lighter blue
+					muted: '#f1f5f9', // light gray
+					success: '#10b981', // green
+					warning: '#f59e0b', // amber
+					danger: '#ef4444', // red
 				}
 			},
 			borderRadius: {
@@ -84,12 +94,25 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				fadeIn: {
+					from: { opacity: '0' },
+					to: { opacity: '1' }
+				},
+				slideIn: {
+					from: { transform: 'translateY(10px)', opacity: '0' },
+					to: { transform: 'translateY(0)', opacity: '1' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
-			}
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fadeIn': 'fadeIn 0.5s ease-out',
+				'slideIn': 'slideIn 0.5s ease-out'
+			},
+			backgroundImage: {
+				'hero-pattern': "url('/hero-bg.jpg')",
+			},
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
