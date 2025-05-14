@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { NotificationService, NotificationPreferences } from "@/services/NotificationService";
+import { Mail, SliderHorizontal, Settings } from "lucide-react";
 
 interface InvestmentPreference {
   minPrice: number;
@@ -20,9 +24,14 @@ interface InvestmentPreference {
   locations: string[];
   bedrooms: number;
   bathrooms: number;
-  notificationFrequency: "daily" | "weekly";
+  notificationFrequency: "daily" | "weekly" | "instant";
   emailNotifications: boolean;
   email: string;
+  minimumGrade: "A" | "B" | "C" | "D" | "any";
+}
+
+interface PreferencesFormProps {
+  onSaved?: () => void;
 }
 
 const defaultPreferences: InvestmentPreference = {
@@ -38,25 +47,52 @@ const defaultPreferences: InvestmentPreference = {
   notificationFrequency: "daily",
   emailNotifications: true,
   email: "",
+  minimumGrade: "B"
 };
 
-const PreferencesForm = () => {
+const PreferencesForm = ({ onSaved }: PreferencesFormProps) => {
   const [preferences, setPreferences] = useState<InvestmentPreference>(defaultPreferences);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("notification");
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      if (preferences.emailNotifications && preferences.email) {
+        const notificationPrefs: NotificationPreferences = {
+          frequency: preferences.notificationFrequency,
+          minimumGrade: preferences.minimumGrade,
+          locationPreferences: preferences.locations,
+          propertyTypes: preferences.propertyTypes,
+          priceRange: [preferences.minPrice, preferences.maxPrice] as [number, number],
+          minBedrooms: preferences.bedrooms,
+          minBathrooms: preferences.bathrooms,
+        };
+        
+        await NotificationService.subscribeToAlerts(preferences.email, notificationPrefs);
+      }
+      
+      if (onSaved) {
+        onSaved();
+      } else {
+        toast({
+          title: "Preferences Saved",
+          description: "Your investment preferences have been updated. We'll notify you of matching properties!",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving preferences:", error);
       toast({
-        title: "Preferences Saved",
-        description: "Your investment preferences have been updated. We'll notify you of matching properties!",
+        title: "Error",
+        description: "There was a problem saving your preferences. Please try again.",
+        variant: "destructive",
       });
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const handlePriceChange = (values: number[]) => {
@@ -101,14 +137,176 @@ const PreferencesForm = () => {
     });
   };
 
+  const handleTestNotification = async () => {
+    if (!preferences.email) {
+      toast({
+        title: "Email Required",
+        description: "Please enter your email address first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const result = await NotificationService.testEmailNotification(preferences.email);
+      if (result) {
+        toast({
+          title: "Test Email Sent",
+          description: `A test notification has been sent to ${preferences.email}`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to send test email. Please check your email address.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl mx-auto">
-      <Tabs defaultValue="investment">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="investment">Investment Criteria</TabsTrigger>
-          <TabsTrigger value="property">Property Details</TabsTrigger>
-          <TabsTrigger value="notification">Notifications</TabsTrigger>
+          <TabsTrigger value="notification" className="flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            <span>Notifications</span>
+          </TabsTrigger>
+          <TabsTrigger value="investment" className="flex items-center gap-2">
+            <SliderHorizontal className="h-4 w-4" />
+            <span>Investment Criteria</span>
+          </TabsTrigger>
+          <TabsTrigger value="property" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span>Property Details</span>
+          </TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="notification" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notification Preferences</CardTitle>
+              <CardDescription>Choose how you want to be notified about new matching properties.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="emailNotifications" className="text-base">Email Notifications</Label>
+                  <p className="text-sm text-muted-foreground mt-1">Receive alerts about new investment opportunities</p>
+                </div>
+                <Switch
+                  id="emailNotifications"
+                  checked={preferences.emailNotifications}
+                  onCheckedChange={(checked) => setPreferences({...preferences, emailNotifications: checked})}
+                />
+              </div>
+              
+              {preferences.emailNotifications && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-base">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={preferences.email}
+                      onChange={(e) => setPreferences({...preferences, email: e.target.value})}
+                      required
+                      className="bg-background"
+                    />
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <Label className="text-base">Notification Frequency</Label>
+                    <RadioGroup 
+                      value={preferences.notificationFrequency}
+                      onValueChange={(value: "daily" | "weekly" | "instant") => 
+                        setPreferences({...preferences, notificationFrequency: value})
+                      }
+                      className="grid grid-cols-1 gap-4 pt-2"
+                    >
+                      <div className="flex items-center space-x-2 rounded-md border p-3 hover:bg-accent">
+                        <RadioGroupItem value="instant" id="instant" />
+                        <Label htmlFor="instant" className="flex-1 cursor-pointer font-normal">
+                          <div className="font-medium">Instant Alerts</div>
+                          <div className="text-sm text-muted-foreground">
+                            Get notified immediately when we find matching deals
+                          </div>
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2 rounded-md border p-3 hover:bg-accent">
+                        <RadioGroupItem value="daily" id="daily" />
+                        <Label htmlFor="daily" className="flex-1 cursor-pointer font-normal">
+                          <div className="font-medium">Daily Digest</div>
+                          <div className="text-sm text-muted-foreground">
+                            Receive a summary of new properties once a day
+                          </div>
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2 rounded-md border p-3 hover:bg-accent">
+                        <RadioGroupItem value="weekly" id="weekly" />
+                        <Label htmlFor="weekly" className="flex-1 cursor-pointer font-normal">
+                          <div className="font-medium">Weekly Summary</div>
+                          <div className="text-sm text-muted-foreground">
+                            Get a roundup of the best deals once a week
+                          </div>
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-base">Deal Quality Threshold</Label>
+                    <p className="text-sm text-muted-foreground">Only notify me about properties graded:</p>
+                    <Select 
+                      value={preferences.minimumGrade}
+                      onValueChange={(value: "A" | "B" | "C" | "D" | "any") => 
+                        setPreferences({...preferences, minimumGrade: value})
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select minimum grade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A">A Grade Only (Best Deals)</SelectItem>
+                        <SelectItem value="B">B Grade or Better</SelectItem>
+                        <SelectItem value="C">C Grade or Better</SelectItem>
+                        <SelectItem value="D">D Grade or Better</SelectItem>
+                        <SelectItem value="any">Any Grade</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="pt-4">
+                    <Button 
+                      type="button" 
+                      onClick={handleTestNotification} 
+                      variant="outline"
+                      disabled={loading || !preferences.email}
+                      className="w-full"
+                    >
+                      Send Test Notification
+                    </Button>
+                  </div>
+                </>
+              )}
+            </CardContent>
+            <CardFooter>
+              <p className="text-sm text-muted-foreground">
+                We'll only send you notifications about properties that match your investment criteria.
+              </p>
+            </CardFooter>
+          </Card>
+        </TabsContent>
         
         <TabsContent value="investment" className="space-y-4">
           <Card>
@@ -272,61 +470,6 @@ const PreferencesForm = () => {
                 </div>
               </div>
             </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="notification" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>Choose how you want to be notified about new matching properties.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="emailNotifications">Email Notifications</Label>
-                <Switch
-                  id="emailNotifications"
-                  checked={preferences.emailNotifications}
-                  onCheckedChange={(checked) => setPreferences({...preferences, emailNotifications: checked})}
-                />
-              </div>
-              
-              {preferences.emailNotifications && (
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={preferences.email}
-                    onChange={(e) => setPreferences({...preferences, email: e.target.value})}
-                    required
-                  />
-                </div>
-              )}
-              
-              <div className="space-y-2">
-                <Label htmlFor="frequency">Notification Frequency</Label>
-                <Select 
-                  value={preferences.notificationFrequency} 
-                  onValueChange={(value: "daily" | "weekly") => setPreferences({...preferences, notificationFrequency: value})}
-                  disabled={!preferences.emailNotifications}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select frequency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <p className="text-sm text-gray-500">
-                We'll only send you notifications about properties that match your investment criteria.
-              </p>
-            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
